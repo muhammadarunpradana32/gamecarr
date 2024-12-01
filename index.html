@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Car Racing Game</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            margin: auto;
+            background-color: #4cd038; /* Green grass */
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas dimensions to fit the screen
+        canvas.width = window.innerWidth * 0.9;
+        canvas.height = window.innerHeight * 0.8;
+
+        // Game variables
+        const roadWidth = canvas.width * 0.6;
+        const lanes = [
+            canvas.width * 0.25,
+            canvas.width * 0.5,
+            canvas.width * 0.75
+        ];
+        const carWidth = canvas.width * 0.05;
+        let speed = 2;
+        let score = 0;
+        let gameover = false;
+        let showQuestion = false;
+        let answer = '';
+        let correctAnswer;
+
+        // Load images
+        const carImg = new Image();
+        carImg.src = 'images/car.png';
+
+        const crashImg = new Image();
+        crashImg.src = 'images/crash.png';
+
+        const vehicleImages = [
+            'images/pickup_truck.png',
+            'images/semi_trailer.png',
+            'images/taxi.png',
+            'images/van.png'
+        ].map(src => {
+            const img = new Image();
+            img.src = src;
+            return img;
+        });
+
+        // Player car position
+        let playerX = lanes[1];
+        let playerY = canvas.height - 150;
+
+        // Vehicle objects
+        const vehicles = [];
+
+        function drawRoad() {
+            ctx.fillStyle = '#646464';
+            ctx.fillRect((canvas.width - roadWidth) / 2, 0, roadWidth, canvas.height);
+
+            // Edge markers
+            ctx.fillStyle = '#ffe800';
+            ctx.fillRect((canvas.width - roadWidth) / 2 - 5, 0, 10, canvas.height);
+            ctx.fillRect((canvas.width + roadWidth) / 2 - 5, 0, 10, canvas.height);
+
+            // Lane markers
+            ctx.fillStyle = 'white';
+            for (let i = 0; i < canvas.height; i += 50) {
+                ctx.fillRect(canvas.width / 2 - 5, i + speed * 2, 10, 30);
+            }
+        }
+
+        function drawPlayer() {
+            ctx.drawImage(carImg, playerX - carWidth / 2, playerY, carWidth, carWidth * 2);
+        }
+
+        function drawVehicles() {
+            vehicles.forEach(vehicle => {
+                ctx.drawImage(vehicle.img, vehicle.x - carWidth / 2, vehicle.y, carWidth, carWidth * 2);
+                vehicle.y += speed;
+
+                if (vehicle.y > canvas.height) {
+                    vehicles.splice(vehicles.indexOf(vehicle), 1);
+                    score++;
+                }
+            });
+        }
+
+        function addVehicle() {
+            if (vehicles.length < 2 && !showQuestion) {
+                const lane = lanes[Math.floor(Math.random() * lanes.length)];
+                const img = vehicleImages[Math.floor(Math.random() * vehicleImages.length)];
+                vehicles.push({ img, x: lane, y: -100 });
+            }
+        }
+
+        function checkCollision() {
+            vehicles.forEach(vehicle => {
+                if (Math.abs(vehicle.x - playerX) < carWidth && Math.abs(vehicle.y - playerY) < carWidth * 2) {
+                    showQuestion = true;
+                    vehicles.length = 0;
+                    generateQuestion();
+                }
+            });
+        }
+
+        function generateQuestion() {
+            const num1 = Math.floor(Math.random() * 10) + 1;
+            const num2 = Math.floor(Math.random() * 10) + 1;
+            correctAnswer = (num1 + num2).toString();
+            questionText = `${num1} + ${num2} = ?`;
+            answer = '';
+        }
+
+        function drawQuestion() {
+            ctx.fillStyle = 'red';
+            ctx.font = '24px Arial';
+            ctx.fillText(questionText, canvas.width / 2 - 50, canvas.height / 2 - 20);
+
+            ctx.fillStyle = 'white';
+            ctx.fillText("Answer: " + answer, canvas.width / 2 - 50, canvas.height / 2 + 20);
+        }
+
+        function handleInput(key) {
+            if (showQuestion) {
+                if (key === 'Enter') {
+                    if (answer === correctAnswer) {
+                        showQuestion = false;
+                        speed += 1;
+                    } else {
+                        gameover = true;
+                    }
+                } else if (key === 'Backspace') {
+                    answer = answer.slice(0, -1);
+                } else if (!isNaN(key)) {
+                    answer += key;
+                }
+            }
+        }
+
+        function handleTouchStart(e) {
+            const touchX = e.touches[0].clientX;
+            if (touchX < canvas.width / 2 && playerX > lanes[0] && !showQuestion) {
+                playerX -= canvas.width * 0.25;
+            } else if (touchX > canvas.width / 2 && playerX < lanes[2] && !showQuestion) {
+                playerX += canvas.width * 0.25;
+            }
+        }
+
+        function gameLoop() {
+            if (!gameover) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawRoad();
+                drawPlayer();
+                drawVehicles();
+                if (showQuestion) {
+                    drawQuestion();
+                } else {
+                    addVehicle();
+                    checkCollision();
+                }
+
+                requestAnimationFrame(gameLoop);
+            } else {
+                ctx.drawImage(crashImg, canvas.width / 4, canvas.height / 4);
+                ctx.fillStyle = 'red';
+                ctx.font = '24px Arial';
+                ctx.fillText('Game Over!', canvas.width / 2 - 50, 50);
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' && playerX > lanes[0] && !showQuestion) {
+                playerX -= canvas.width * 0.25;
+            } else if (e.key === 'ArrowRight' && playerX < lanes[2] && !showQuestion) {
+                playerX += canvas.width * 0.25;
+            } else {
+                handleInput(e.key);
+            }
+        });
+
+        document.addEventListener('touchstart', handleTouchStart);
+
+        generateQuestion();
+        gameLoop();
+    </script>
+</body>2
+</html>
